@@ -1,0 +1,76 @@
+# ---------------------------------------------------------------
+# Intelligent Traffic Analytics System - configuration
+# All coordinates are NORMALISED (0..1) relative to the frame, so
+# they keep working if you change the processing resolution.
+# x: 0 = left, 1 = right     y: 0 = top, 1 = bottom
+# ---------------------------------------------------------------
+
+paths:
+  database: data/traffic.db
+  videos: data/videos
+
+detector:
+  model: yolov8n.pt          # smallest pretrained YOLO -> fastest on CPU
+  tracker: configs/bytetrack_cpu.yaml
+  imgsz: 1280                # larger inference size helps detect distant/small vehicles
+  conf: 0.20
+  iou: 0.50
+  device: cpu
+  classes:                   # COCO class ids we care about
+    2: car
+    3: motorcycle
+    5: bus
+    7: truck
+
+video:
+  process_width: 1920        # retain detail from 4K footage; smaller sources are not upscaled
+  target_fps: 8              # frames are skipped to approximate this rate
+  preview_every: 2           # publish an annotated preview every N processed frames
+  preview_quality: 70
+
+analytics:
+  reference_point: bottom_center   # bottom_center (road contact) | center
+  sample_interval_s: 5             # density samples are averaged over this window
+
+  # Virtual counting lines. A vehicle is counted once per line when its
+  # reference point crosses the segment p1 -> p2.
+  # positive_label = side to the "right-hand" of p1->p2 in image coords
+  # (for a line drawn left->right, positive = moving DOWN the screen).
+  lines:
+    - name: Line A
+      p1: [0.05, 0.62]
+      p2: [0.95, 0.62]
+      positive_label: down
+      negative_label: up
+
+  # Region of interest used for density / congestion.
+  roi:
+    polygon: [[0.03, 0.30], [0.97, 0.30], [0.97, 0.97], [0.03, 0.97]]
+    capacity: 12            # vehicles in the ROI that means "full"
+    min_vehicles: 3         # below this the road is always "free"
+    moderate_ratio: 0.25    # count/capacity thresholds
+    heavy_ratio: 0.50
+    congested_ratio: 0.70
+    slow_speed: 0.06        # frame-widths per second; below = "slow"
+
+  # Wrong-way detection. Each zone has an expected travel direction
+  # (vector in image coordinates; [0, 1] = towards the bottom of the frame,
+  # [0, -1] = towards the top). A vehicle moving clearly against the
+  # direction of the zone it is in is flagged once.
+  # The default below assumes a two-way road split down the middle:
+  # left half flows DOWN the screen, right half flows UP. Adjust the polygons
+  # (or use a single zone with polygon: null for a one-way road) - run
+  # `python scripts/preview_config.py <video>` to see them drawn on a frame.
+  wrong_way:
+    enabled: true
+    history: 12             # processed frames of motion to examine
+    min_displacement: 0.05  # ignore parked / jittering vehicles
+    confirm_frames: 4       # consecutive bad frames before raising an event
+    angle_threshold_deg: 120
+    zones:
+      - name: Left carriageway (down)
+        polygon: [[0.0, 0.0], [0.5, 0.0], [0.5, 1.0], [0.0, 1.0]]
+        expected_direction: [0, 1]
+      - name: Right carriageway (up)
+        polygon: [[0.5, 0.0], [1.0, 0.0], [1.0, 1.0], [0.5, 1.0]]
+        expected_direction: [0, -1]

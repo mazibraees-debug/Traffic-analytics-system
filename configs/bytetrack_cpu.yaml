@@ -1,0 +1,8 @@
+# ByteTrack settings tuned for lower-confidence detections at reduced FPS.
+tracker_type: bytetrack
+track_high_thresh: 0.20   # first association threshold
+track_low_thresh: 0.10    # second (low-score) association threshold
+new_track_thresh: 0.20    # min score to start a new track
+track_buffer: 24          # frames to keep a lost track (~3 s at 8 fps)
+match_thresh: 0.80        # IoU matching threshold
+fuse_score: True

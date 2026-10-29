@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Traffic Analytics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#e8eaec; --panel:#f6f7f8; --ink:#1f272e; --muted:#5d6a75; --line:#cfd4d9;
+  --yellow:#f5b800; --free:#2e9e5b; --moderate:#d9b200; --heavy:#e8870e; --congested:#d63a2f;
+  --car:#3b6f9e; --motorcycle:#7a5ea8; --bus:#e8870e; --truck:#4d8c7a;
+  --head:"Barlow Condensed","Arial Narrow",Arial,sans-serif; --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#161b20; --panel:#1f262d; --ink:#e7ebee; --muted:#93a1ad; --line:#323c46; color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 var(--body)}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:14px 28px;background:#20282f;color:#f1f3f4;position:relative}
+header::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;
+  background:repeating-linear-gradient(90deg,var(--yellow) 0 28px,transparent 28px 44px)}
+h1{font:600 26px/1 var(--head);letter-spacing:.02em;margin:0;flex:1}
+select,button,input{font:inherit;color:inherit}
+header select{background:#2b353e;color:#f1f3f4;border:1px solid #44505b;border-radius:4px;padding:6px 8px}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:99px;background:#2b353e;font-weight:500}
+.dot{width:10px;height:10px;border-radius:50%;background:#7b8791}
+.pill[data-s=running] .dot{background:var(--free);animation:pulse 1.2s infinite}
+.pill[data-s=error] .dot{background:var(--congested)}
+.pill[data-s=done] .dot{background:var(--free)}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.pill .dot{animation:none!important}}
+main{padding:24px 28px 48px;max-width:1360px;margin:0 auto;display:grid;gap:20px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px 18px}
+h2{font:600 20px/1.1 var(--head);letter-spacing:.02em;margin:0 0 12px}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.controls input[type=datetime-local],.controls select{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:7px 9px;min-width:0}
+.btn{border:1px solid var(--ink);background:transparent;border-radius:4px;padding:7px 14px;cursor:pointer;font-weight:600}
+.btn.primary{background:var(--yellow);border-color:var(--yellow);color:#1f272e}
+.btn:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #3b8cff;outline-offset:2px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;flex:1 1 200px;min-width:120px}
+.bar>i{display:block;height:100%;width:0;background:var(--yellow);transition:width .4s}
+.msg{color:var(--muted);font-size:13px;width:100%;min-height:18px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px}
+.kpi{border-left:6px solid var(--line);padding:6px 0 6px 14px}
+.kpi .v{font:700 44px/1 var(--head)}
+.kpi .l{color:var(--muted);font-size:13px;margin-top:4px}
+.kpi.level[data-l=free]{border-color:var(--free)} .kpi.level[data-l=moderate]{border-color:var(--moderate)}
+.kpi.level[data-l=heavy]{border-color:var(--heavy)} .kpi.level[data-l=congested]{border-color:var(--congested)}
+.kpi.warn{border-color:var(--congested)}
+.row{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:20px}
+.row.even{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+@media (max-width:900px){.row,.row.even{grid-template-columns:1fr}}
+.preview{aspect-ratio:16/9;background:#12171b;border-radius:4px;display:grid;place-items:center;color:#8a98a3;overflow:hidden;text-align:center;padding:12px}
+.preview img{width:100%;height:100%;object-fit:contain;display:block}
+.chart{position:relative;height:300px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:right;padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:600;color:var(--muted);font-size:13px}
+.scroll{overflow-x:auto}
+.tag{display:inline-block;padding:1px 8px;border-radius:3px;font-weight:600;font-size:12px;color:#fff}
+.tag.free{background:var(--free)} .tag.moderate{background:var(--moderate);color:#1f272e}
+.tag.heavy{background:var(--heavy)} .tag.congested{background:var(--congested)}
+.empty{color:var(--muted);padding:18px 4px}
+a{color:inherit}
+</style>
+</head>
+<body>
+<header>
+  <h1>Traffic Analytics</h1>
+  <label>Run <select id="run" aria-label="Select analysis run"></select></label>
+  <span class="pill" id="pill" data-s="idle"><span class="dot"></span><span id="pilltxt">Idle</span></span>
+</header>
+
+<main>
+  <section class="panel" aria-label="Run an analysis">
+    <h2>Analyse a video</h2>
+    <div class="controls">
+      <select id="video" aria-label="Video file"></select>
+      <input type="file" id="file" accept="video/*" hidden>
+      <button class="btn" id="upload">Upload video</button>
+      <label>First frame at <input type="datetime-local" id="start" step="1"></label>
+      <button class="btn primary" id="go">Start analysis</button>
+      <button class="btn" id="stop" disabled>Stop</button>
+      <div class="bar" aria-hidden="true"><i id="prog"></i></div>
+      <div class="msg" id="msg" role="status"></div>
+    </div>
+  </section>
+
+  <section class="kpis" aria-label="Key figures">
+    <div class="kpi"><div class="v" id="k-total">–</div><div class="l">Vehicles counted</div></div>
+    <div class="kpi level" id="k-level" data-l=""><div class="v" id="k-lvl">–</div><div class="l">Latest congestion level</div></div>
+    <div class="kpi"><div class="v" id="k-peak">–</div><div class="l">Peak vehicles in zone</div></div>
+    <div class="kpi" id="k-ww-box"><div class="v" id="k-ww">–</div><div class="l">Wrong-way events</div></div>
+  </section>
+
+  <section class="row">
+    <div class="panel">
+      <h2>Live view</h2>
+      <div class="preview" id="preview">Start an analysis to see detections, counting lines and the traffic zone here.</div>
+    </div>
+    <div class="panel">
+      <h2>Vehicles in zone and average speed</h2>
+      <div class="chart"><canvas id="c-density" role="img" aria-label="Vehicle density over time"></canvas></div>
+    </div>
+  </section>
+
+  <section class="row even">
+    <div class="panel">
+      <h2>Vehicles per hour, by type</h2>
+      <div class="chart"><canvas id="c-hourly" role="img" aria-label="Hourly vehicle counts by type"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Counting lines</h2>
+      <div class="scroll" id="lines"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Hourly report <a href="/api/report/hourly.csv" id="csv" style="font:500 14px var(--body);margin-left:12px">Download CSV</a></h2>
+    <div class="scroll" id="hourly"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Events</h2>
+    <div class="scroll" id="events"></div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const LEVEL_COL = {free:'#2e9e5b', moderate:'#d9b200', heavy:'#e8870e', congested:'#d63a2f'};
+const CLS_COL = {car:'#3b6f9e', motorcycle:'#7a5ea8', bus:'#e8870e', truck:'#4d8c7a'};
+let runId = null, charts = {}, lastStatus = 'idle';
+
+const j = (u, o) => fetch(u, o).then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.detail || r.statusText) }); return r.json(); });
+const q = () => runId ? `?run_id=${runId}` : '';
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt = (v, d = 1) => v == null ? '–' : Number(v).toFixed(d);
+const tag = l => l ? `<span class="tag ${esc(l)}">${esc(l)}</span>` : '–';
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function table(cols, rows) {
+  if (!rows.length) return '<div class="empty">No data yet.</div>';
+  return `<table><thead><tr>${cols.map(c => `<th>${esc(c[0])}</th>`).join('')}</tr></thead><tbody>` +
+    rows.map(r => `<tr>${cols.map(c => `<td>${c[1](r)}</td>`).join('')}</tr>`).join('') + '</tbody></table>';
+}
+
+async function loadRuns() {
+  const runs = await j('/api/runs');
+  const sel = $('run'), cur = runId;
+  sel.innerHTML = runs.map(r => `<option value="${r.id}">#${r.id} · ${esc(r.source)} · ${esc(r.start_time)} (${esc(r.status)})</option>`).join('')
+    || '<option value="">No runs yet</option>';
+  if (cur && runs.some(r => r.id == cur)) sel.value = cur; else runId = runs.length ? runs[0].id : null;
+  if (runId) sel.value = runId;
+}
+
+async function loadVideos() {
+  const v = await j('/api/videos'), sel = $('video'), cur = sel.value;
+  sel.innerHTML = v.map(x => `<option>${esc(x)}</option>`).join('') || '<option value="">No videos – upload one</option>';
+  if (v.includes(cur)) sel.value = cur;
+}
+
+async function refresh() {
+  const [s, dens, hourly, events] = await Promise.all([
+    j('/api/summary' + q()), j('/api/density' + q() + (runId ? '&' : '?') + 'limit=400'),
+    j('/api/report/hourly' + q()), j('/api/events' + q())]);
+  const t = s.totals;
+  $('k-total').textContent = t ? t.total_vehicles.toLocaleString() : '–';
+  $('k-lvl').textContent = t && t.latest_level ? t.latest_level : '–';
+  $('k-level').dataset.l = t && t.latest_level ? t.latest_level : '';
+  $('k-peak').textContent = t && t.peak_vehicles != null ? t.peak_vehicles : '–';
+  $('k-ww').textContent = t ? t.wrong_way_events : '–';
+  $('k-ww-box').classList.toggle('warn', !!(t && t.wrong_way_events));
+  $('csv').href = '/api/report/hourly.csv' + q();
+
+  $('lines').innerHTML = table(
+    [['Line', r => esc(r.line)], ['Direction', r => esc(r.direction)], ['Vehicles', r => r.n.toLocaleString()]],
+    t ? t.by_line : []);
+
+  $('hourly').innerHTML = table([
+    ['Hour', r => esc(r.hour)], ['Vehicles', r => r.total_vehicles.toLocaleString()],
+    ['Cars', r => r.by_class.car || 0], ['Motorcycles', r => r.by_class.motorcycle || 0],
+    ['Buses', r => r.by_class.bus || 0], ['Trucks', r => r.by_class.truck || 0],
+    ['Avg in zone', r => fmt(r.avg_vehicles)], ['Peak', r => r.peak_vehicles ?? '–'],
+    ['Avg speed', r => fmt(r.avg_speed, 3)], ['Heavy %', r => fmt(r.heavy_pct)],
+    ['Congested %', r => fmt(r.congested_pct)], ['Wrong-way', r => r.wrong_way_events]], hourly);
+
+  $('events').innerHTML = table([
+    ['Time', r => esc(r.ts)], ['Event', r => esc(r.type.replace('_', ' '))], ['Vehicle', r => esc(r.vclass || '') + ' #' + r.track_id],
+    ['Details', r => esc(r.details)]], events);
+
+  drawDensity(dens);
+  drawHourly(hourly);
+}
+
+function chart(id, cfg) {
+  if (charts[id]) { charts[id].data = cfg.data; charts[id].update('none'); return; }
+  charts[id] = new Chart($(id), cfg);
+}
+
+function drawDensity(d) {
+  const muted = cssv('--muted'), grid = cssv('--line');
+  chart('c-density', {type: 'line', data: {
+    labels: d.map(x => x.ts.slice(11, 19)),
+    datasets: [
+      {label: 'Vehicles in zone', data: d.map(x => x.vehicles), borderColor: cssv('--car'), backgroundColor: cssv('--car'),
+       pointBackgroundColor: d.map(x => LEVEL_COL[x.level]), pointRadius: 3, borderWidth: 2, tension: .25, yAxisID: 'y'},
+      {label: 'Avg speed (frame widths/s)', data: d.map(x => x.avg_speed), borderColor: muted, borderDash: [6, 4],
+       pointRadius: 0, borderWidth: 2, tension: .25, yAxisID: 'y2'}]},
+    options: {responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: {legend: {labels: {color: muted}}},
+      scales: {x: {ticks: {color: muted, maxTicksLimit: 8}, grid: {color: grid}},
+        y: {beginAtZero: true, ticks: {color: muted}, grid: {color: grid}, title: {display: true, text: 'vehicles', color: muted}},
+        y2: {position: 'right', beginAtZero: true, ticks: {color: muted}, grid: {display: false}}}}});
+}
+
+function drawHourly(h) {
+  const muted = cssv('--muted'), grid = cssv('--line');
+  chart('c-hourly', {type: 'bar', data: {
+    labels: h.map(x => x.hour.slice(5)),
+    datasets: ['car', 'motorcycle', 'bus', 'truck'].map(c => ({label: c, data: h.map(x => x.by_class[c] || 0), backgroundColor: CLS_COL[c]}))},
+    options: {responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: {legend: {labels: {color: muted}}},
+      scales: {x: {stacked: true, ticks: {color: muted}, grid: {display: false}},
+        y: {stacked: true, beginAtZero: true, ticks: {color: muted}, grid: {color: grid}}}}});
+}
+
+async function pollStatus() {
+  try {
+    const s = await j('/api/status');
+    const running = s.status === 'running';
+    $('pill').dataset.s = s.status;
+    $('pilltxt').textContent = running ? `Running · ${s.frames} frames` : s.status[0].toUpperCase() + s.status.slice(1);
+    $('prog').style.width = Math.round((s.progress || 0) * 100) + '%';
+    $('msg').textContent = s.status === 'error' ? 'Analysis failed: ' + s.message : (running ? `${s.message} · video time ${s.video_time}s` : '');
+    $('go').disabled = running; $('stop').disabled = !running;
+    if (running) {
+      if (runId != s.run_id) { await loadRuns(); runId = s.run_id; $('run').value = runId; }
+      const img = new Image();
+      img.onload = () => { const p = $('preview'); if (!p.firstElementChild || p.firstElementChild.tagName !== 'IMG') { p.textContent = ''; p.appendChild(img); } else p.firstElementChild.src = img.src; };
+      img.src = '/api/preview.jpg?t=' + Date.now();
+    }
+    if (lastStatus === 'running' && !running) { await loadRuns(); await refresh(); }
+    lastStatus = s.status;
+  } catch (e) { /* server restarting */ }
+}
+
+$('run').onchange = e => { runId = e.target.value || null; refresh(); };
+$('upload').onclick = () => $('file').click();
+$('file').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const fd = new FormData(); fd.append('file', f);
+  $('msg').textContent = 'Uploading ' + f.name + '…';
+  try { const r = await j('/api/upload', {method: 'POST', body: fd}); await loadVideos(); $('video').value = r.video; $('msg').textContent = 'Uploaded ' + r.video; }
+  catch (err) { $('msg').textContent = 'Upload failed: ' + err.message; }
+};
+$('go').onclick = async () => {
+  const body = {video: $('video').value};
+  if (!body.video) { $('msg').textContent = 'Choose or upload a video first.'; return; }
+  if ($('start').value) body.start_time = $('start').value;
+  try { const r = await j('/api/process', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}); runId = r.run_id; await loadRuns(); pollStatus(); }
+  catch (err) { $('msg').textContent = err.message; }
+};
+$('stop').onclick = () => j('/api/stop', {method: 'POST'});
+
+(async () => {
+  const d = new Date(); d.setSeconds(0, 0); d.setMinutes(0);
+  $('start').value = new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 19);
+  await Promise.all([loadVideos(), loadRuns()]);
+  await refresh(); pollStatus();
+  setInterval(pollStatus, 1500);
+  setInterval(() => { if (lastStatus === 'running') refresh(); }, 6000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+# Core
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9
+pyyaml>=6.0
+numpy>=1.24
+opencv-python-headless>=4.8
+
+# Detection + ByteTrack (ultralytics ships ByteTrack built in)
+# For a smaller CPU-only install, first run:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+ultralytics>=8.1
+
+# Tests
+pytest>=7.4
+httpx>=0.26
